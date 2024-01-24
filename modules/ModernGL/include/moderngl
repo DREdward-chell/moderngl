@@ -1,0 +1,6 @@
+#ifndef MODERNGL_H
+#define MODERNGL_H
+
+#include "../src/mgl_core.cpp"
+
+#endif //MODERNGL_H
