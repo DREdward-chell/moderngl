@@ -1,13 +1,22 @@
 #include <OpenGL>
 #include <vector>
 #include <sstream>
+#include <fstream>
 #include <string>
+#include <iostream>
 
 typedef unsigned int u32;
 typedef unsigned long long ull;
 
-namespace _helpers_ {
-
+namespace helpers {
+    void readFile(const char* name, std::string& buf) {
+        std::ifstream fin(name);
+        std::stringstream reader;
+        reader << fin.rdbuf();
+        fin.close();
+        buf.assign(reader.str());
+        reader.clear();
+    }
 }
 
 namespace gl {
@@ -20,7 +29,7 @@ namespace gl {
     typedef struct _buffer_ {
         u32 id;
         u32 dtype;
-        bool is_used;
+        ull size;
     } buffer;
     typedef struct _program_ {
         u32 id;
@@ -32,7 +41,7 @@ namespace gl {
         u32 dtype;
         ull size;
         std::vector<buffer*>& buffers;
-        std::vector<u32>& attribArrays;
+        std::vector<u32>& attribsArray;
         bool is_used;
     } vertexArray;
     typedef GLFWwindow window;
@@ -42,6 +51,7 @@ namespace gl {
         gl::context = glfwCreateWindow(width, height, title, nullptr, nullptr);
         glfwMakeContextCurrent(gl::context);
         gladLoadGL();
+        glViewport(0, 0, width, height);
     }
 
     bool windowIsClosed() {
@@ -51,24 +61,26 @@ namespace gl {
     void nextFrame() {
         glfwPollEvents();
         glfwSwapBuffers(gl::context);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     template<typename T>
     buffer* createBuffer(const std::vector<T>& data, u32 dtype) {
-        static buffer buf = buffer{.dtype=dtype};
-        glGenBuffers(1, &buf.id);
-        glBindBuffer(GL_ARRAY_BUFFER, buf.id);
-        T* ptr = &data.front();
-        glBufferData(GL_ARRAY_BUFFER, data.size(), ptr, GL_STATIC_DRAW);
+        u32 id;
+        static buffer buf = buffer{.dtype=dtype, .size=data.size()};
+        glGenBuffers(1, &id);
+        buf.id = id;
+        glBindBuffer(GL_ARRAY_BUFFER, id);
+        const T* ptr = &data[0];
+        glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(T), ptr, GL_STATIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         return &buf;
     }
-    program* createProgram(const std::string& vsh_src, const std::string& fsh_src, u32& success, std::string& infoLog) {
+    program* createProgram(const std::string& vsh_src, const std::string& fsh_src, std::string& infoLog) {
         int s;
-        char vlog[8192];
-        char flog[8192];
-        char plog[8192];
-        success = 1;
+        char vlog[1024];
+        char flog[1024];
+        char plog[1024];
         
         u32 vid, fid;
 
@@ -80,11 +92,8 @@ namespace gl {
         glCompileShader(vid);
         glGetShaderiv(vid, GL_COMPILE_STATUS, &s);
         if (!s) {
-            std::string l;
             glGetShaderInfoLog(vid, 8192, nullptr, vlog);
-            l.assign(vlog);
-            infoLog.append(l);
-            success = 0;
+            infoLog.append(vlog);
         }
 
         const char* cfsh = fsh_src.c_str();
@@ -92,11 +101,8 @@ namespace gl {
         glCompileShader(fid);
         glGetShaderiv(fid, GL_COMPILE_STATUS, &s);
         if (!s) {
-            std::string l;
-            glGetShaderInfoLog(fid, 8192, nullptr, flog);
-            l.assign(flog);
-            infoLog.append(l);
-            success = 0;
+            glGetShaderInfoLog(fid, 1024, nullptr, flog);
+            infoLog.append(flog);
         }
 
         shader_program.id = glCreateProgram();
@@ -105,11 +111,8 @@ namespace gl {
         glLinkProgram(shader_program.id);
         glGetProgramiv(shader_program.id, GL_LINK_STATUS, &s);
         if (!s) {
-            std::string l;
-            glGetProgramInfoLog(fid, 8192, nullptr, plog);
-            l.assign(plog);
-            infoLog.append(l);
-            success = 0;
+            glGetProgramInfoLog(shader_program.id, 1024, nullptr, plog);
+            infoLog.append(plog);
         }
 
         glDeleteShader(vid);
@@ -117,21 +120,45 @@ namespace gl {
 
         return &shader_program;
     }
-    void bufferAttribute(const buffer* buf, u32 index, u32 pushSize, u32 dtype, u32 stride, u32 firstElement) {
-        ull dtsize = 0;
-        if (dtype == gl::Float || dtype == gl::Int || dtype == gl::UInt)
-            dtsize = sizeof(float);
-        else if (dtype == gl::Byte || dtype == gl::UByte)
-            dtsize = sizeof(char);
-        else if (dtype == gl::Double)
-            dtsize = sizeof(double);
+    void useProgram(const program* shader) {
+        glUseProgram(shader->id);
+    }
+    u32 getTypeSize(u32 glType) {
+        if (glType == gl::Float || glType == gl::Int || glType == gl::UInt)
+            return sizeof(float);
+        else if (glType == gl::Byte || glType == gl::UByte)
+            return sizeof(char);
+        else if (glType == gl::Double)
+            return sizeof(double);
+    }
+    void bufferAttribute(const buffer* buf, u32 index, u32 pushSize, u32 stride, u32 firstElement) {
+        ull dtsize = gl::getTypeSize(buf->dtype);
         glBindBuffer(GL_ARRAY_BUFFER, buf->id);
-        glVertexAttribPointer(index, pushSize, dtype, GL_FALSE, stride * dtsize, (void*)(firstElement * dtsize));
+        glVertexAttribPointer(index, pushSize, buf->dtype, GL_FALSE, stride * dtsize, (void*)(firstElement * dtsize));
     }
     void enableVertexAttribute(u32 index) {
         glEnableVertexAttribArray(index);
     }
-    vertexArray* createVertexArray_simple() {
-        
+    vertexArray* createVertexArray_simple(buffer* buf) {
+        static std::vector<buffer*> buffers;
+        static std::vector<u32> attribs;
+        buffers.push_back(buf);
+        attribs.push_back(0);
+
+        static vertexArray vao = vertexArray{.render_method=GL_TRIANGLES, .size=buf->size/3, .buffers=buffers, .attribsArray=attribs};
+        glGenVertexArrays(1, &vao.id);
+        glBindVertexArray(vao.id);
+        gl::bufferAttribute(buf, 0, 3, 6, 0);
+        gl::enableVertexAttribute(0);
+        gl::bufferAttribute(buf, 1, 3, 6, 3);
+        gl::enableVertexAttribute(1);
+        return &vao;
+    }
+    void useVertexArray(const vertexArray* vao) {
+        glBindVertexArray(vao->id);
+    }
+    void render(const vertexArray* vao) {
+        gl::useVertexArray(vao);
+        glDrawArrays(vao->render_method, 0, vao->size);
     }
 }

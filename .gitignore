@@ -1,3 +1,4 @@
 /modules/ModernGL/OpenGL/glfw/
 /modules/ModernGL/OpenGL/glad/
 /.idea/
+/cmake-build-debug/
