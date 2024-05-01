@@ -39,7 +39,3 @@ void draw_triangle() {
     gl::vertexArray* vertexArrayObject = gl::createVertexArray(shaderProgram, 3);
     gl::bindBuffer(vertexArrayObject, triangleBuffer, "3 3", "0 1", 6*sizeof(float));
 }
-
-int main() {
-    draw_triangle();
-}
