@@ -99,9 +99,9 @@ namespace gl {
     }
 
     template<typename T>
-    buffer *createBuffer(const std::vector<T> &data, u32 dtype) {
+    buffer *createBuffer(const std::vector<T> &data, const u32 dtype) {
         u32 id;
-        buffer *buf = new buffer{.dtype = dtype, .size = data.size(), .tsize = sizeof(T)};
+        auto buf = new buffer{.dtype = dtype, .size = data.size(), .tsize = sizeof(T)};
         glGenBuffers(1, &id);
         buf->id = id;
         glBindBuffer(GL_ARRAY_BUFFER, id);
@@ -113,7 +113,7 @@ namespace gl {
 
     program *createProgram(const std::string &vsh_src, const std::string &fsh_src, std::string &infoLog) {
         int s;
-        program *shader_program = new program{};
+        const auto shader_program = new program{};
         const u32 vid = glCreateShader(GL_VERTEX_SHADER);
         const u32 fid = glCreateShader(GL_FRAGMENT_SHADER);
         const char *cvsh = vsh_src.c_str();
@@ -166,7 +166,7 @@ namespace gl {
     inline void bufferAttribute(const buffer *buf, const u32 index, const u32 pushSize, const u32 stride,
                                 const u32 firstElement) {
         glBindBuffer(GL_ARRAY_BUFFER, buf->id);
-        glVertexAttribPointer(index, pushSize, buf->dtype, GL_FALSE, stride,
+        glVertexAttribPointer(index, static_cast<int>(pushSize), buf->dtype, GL_FALSE, static_cast<int>(stride),
                               reinterpret_cast<void *>(firstElement * buf->tsize));
     }
 
@@ -176,7 +176,7 @@ namespace gl {
 
     vertexArray *createVertexArray(const program *shader, const ull render_cycles,
                                    const u32 render_method = GL_TRIANGLES) {
-        vertexArray *vao = new vertexArray{.render_method = render_method, .size = render_cycles, .shader = shader};
+        const auto vao = new vertexArray{.render_method = render_method, .size = render_cycles, .shader = shader};
         glGenVertexArrays(1, &vao->id);
         glBindVertexArray(vao->id);
         return vao;
@@ -194,7 +194,7 @@ namespace gl {
         reader1 << format;
         reader2 << locations;
         int f, l, elem = 0;
-        const ull full_stride = helpers::calculate_stride(format, getTypeSize(buf->dtype));
+        const ull full_stride = helpers::calculate_stride(format, static_cast<int>(getTypeSize(buf->dtype)));
         for (int i = 0, items = helpers::count_items(format); i < items; i++) {
             reader1 >> f;
             reader2 >> l;
@@ -209,7 +209,7 @@ namespace gl {
     inline void render(const vertexArray *vao) {
         useProgram(vao->shader);
         useVertexArray(vao);
-        glDrawArrays(vao->render_method, 0, vao->size);
+        glDrawArrays(vao->render_method, 0, static_cast<int>(vao->size));
     }
 }
 
