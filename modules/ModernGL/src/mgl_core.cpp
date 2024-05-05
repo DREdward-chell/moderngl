@@ -34,14 +34,10 @@ namespace helpers {
         return c;
     }
 
-    int calculate_stride(const std::string &vars, const int dsize) {
-        std::stringstream reader(vars);
+    int calculate_stride(const std::vector<int> &v, const int dsize) {
         int s = 0;
-        for (int i = 0, size = count_items(vars); i < size; i++) {
-            int in;
-            reader >> in;
-            s += in;
-        }
+        for (const int i: v)
+            s += i;
         return s * dsize;
     }
 }
@@ -186,24 +182,18 @@ namespace gl {
         glBindVertexArray(vao->id);
     }
 
-    void bindBuffer(const vertexArray *vao, const buffer *buf, const std::string &format,
-                    const std::string &locations) {
+    void bindBuffer(const vertexArray *vao, const buffer *buf,
+                    const std::vector<int> &format, const std::vector<int> &locations) {
         useVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, buf->id);
-        std::stringstream reader1, reader2;
-        reader1 << format;
-        reader2 << locations;
-        int f, l, elem = 0;
+        int elem = 0;
         const ull full_stride = helpers::calculate_stride(format, static_cast<int>(getTypeSize(buf->dtype)));
-        for (int i = 0, items = helpers::count_items(format); i < items; i++) {
-            reader1 >> f;
-            reader2 >> l;
-            bufferAttribute(buf, l, f, full_stride, elem);
-            enableVertexAttribute(l);
-            elem += f;
+        for (int i = 0; i < format.size(); i++) {
+            const int size = format[i], location = locations[i];
+            bufferAttribute(buf, location, size, full_stride, elem);
+            enableVertexAttribute(location);
+            elem += size;
         }
-        reader1.clear();
-        reader2.clear();
     }
 
     inline void render(const vertexArray *vao) {

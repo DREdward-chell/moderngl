@@ -5,10 +5,9 @@ using namespace gl;
 
 int main() {
     const vector mesh{
-        -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-        0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-        -0.5f, 0.5f, 1.0f, 1.0f, 0.0f
+        0.f, 0.f, 1.f, 0.f, 0.f,
+        -1.f, -1.f, 0.f, 1.f, 0.f,
+        -1.f, 1.f, 0.f, 0.f, 1.f
     };
     createContext(1000, 500, "Garrys mod");
 
@@ -18,7 +17,7 @@ int main() {
     const program *program = createProgram(v, f, l);
     const buffer *buf = createBuffer(mesh, Float);
     const vertexArray *vertexArray = createVertexArray(program, 4, GL_QUADS);
-    bindBuffer(vertexArray, buf, "2 3", "0 1");
+    bindBuffer(vertexArray, buf, {2, 3}, {0, 1});
 
     while (!windowIsClosed()) {
         nextFrame();
