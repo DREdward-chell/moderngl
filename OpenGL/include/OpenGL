@@ -1,0 +1,9 @@
+#ifndef OPENGL_H
+#define OPENGL_H
+
+#ifndef __glad_h_
+#include <glad/glad.h>
+#endif //__glad_h_
+#include <GLFW/glfw3.h>
+
+#endif //OPENGL_H
